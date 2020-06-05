@@ -11,6 +11,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.View
 import android.widget.LinearLayout
@@ -22,6 +23,12 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.get
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.ble_item.view.*
+import kotlinx.android.synthetic.main.ble_item.view.tv1
+import kotlinx.android.synthetic.main.ble_item.view.tv2
+import kotlinx.android.synthetic.main.ble_item.view.tv3
+import kotlinx.android.synthetic.main.ble_item.view.tv_blename
+import kotlinx.android.synthetic.main.ble_item.view.tv_bty
+import kotlinx.android.synthetic.main.sample_devices_view.view.*
 import java.lang.Float.intBitsToFloat
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -37,7 +44,7 @@ class MainActivity : AppCompatActivity() {
     var first=true
 //    val charList = ArrayList<BluetoothGattCharacteristic>()
     val charMap  = mutableMapOf<BluetoothGatt,ArrayList<BluetoothGattCharacteristic>>()
-    val deviceList = ArrayList<BluetoothDevice>()
+
     val gattList = ArrayList<BluetoothGatt>()
     val a=0
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -61,7 +68,6 @@ class MainActivity : AppCompatActivity() {
         } else {
             mBtAdapter.enable()
         }
-        val inflater = layoutInflater
         mBluetoothLeScanner = mBtAdapter.bluetoothLeScanner
         bt_con.setOnClickListener {
             AlertDialog.Builder(this)
@@ -69,18 +75,23 @@ class MainActivity : AppCompatActivity() {
                     val addr = scnList[w].substring(scnList[w].lastIndexOf(',') + 1)
                     val device = mBtAdapter.getRemoteDevice(addr)
                     gattList.add(device.connectGatt(this, false, mGattCallback))
-                    deviceList.add(device)
-                    val view = inflater.inflate(R.layout.ble_item, null)
+//                    deviceList.add(device)
+                    val view = devicesView(this)
                     viewList.add(view)
+                    view.setOnLongClickListener {
+                        gattList[viewList.indexOf(view)].disconnect()
+                        return@setOnLongClickListener true
+                    }
                 }
                 .show()
         }
         bt_ent.setOnClickListener {
             val activityIntent = Intent()
             activityIntent.component =
-                ComponentName("com.unity3d.player", "com.unity3d.player.UnityPlayerActivity")
+                ComponentName("com.DefaultCompany.PEO", "com.unity3d.player.UnityPlayerActivity")
             startActivity(activityIntent)
         }
+
     }
 
     private val scanCallback: ScanCallback = object : ScanCallback() {
@@ -95,13 +106,14 @@ class MainActivity : AppCompatActivity() {
     val mGattCallback: BluetoothGattCallback = object : mBluetoothGattCallback() {
         override fun Discovered(p0: Boolean, p1: BluetoothGatt) {
             super.Discovered(p0, p1)
+            if (p1!=gattList.last()){
+                requestCharacteristics(gattList[gattList.indexOf(p1)+1])
+            }
+            else{
+                requestCharacteristics(gattList[0])
+            }
             if (p0){
-                if (p1!=gattList.last()){
-                    requestCharacteristics(gattList[gattList.indexOf(p1)+1])
-                }
-                else{
-                    requestCharacteristics(gattList[0])
-                }
+
             }
         }
         fun requestCharacteristics(gatt: BluetoothGatt) {
@@ -115,20 +127,19 @@ class MainActivity : AppCompatActivity() {
                     runOnUiThread {
                         val layoutParams=LinearLayout.LayoutParams( LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT)
                         layoutParams.setMargins(5,5,5,5)
-                        ll.addView(viewList[deviceList.indexOf(gatt.device)],layoutParams)
-                        ll[deviceList.indexOf(gatt.device)].tv_blename.text=gatt.device.name
+                        ll.addView(viewList[gattList.indexOf(gatt)],layoutParams)
+                        ll[gattList.indexOf(gatt)].tv_blename.text=gatt.device.name
                     }
 
                 }
                 BluetoothProfile.STATE_DISCONNECTED->{
                     showMessage("連線失敗")
-
                     runOnUiThread {
-                        ll.removeView(viewList[deviceList.indexOf(gatt.device)])
+                        ll.removeView(viewList[gattList.indexOf(gatt)])
+                        viewList.removeAt(gattList.indexOf(gatt))
+                        gattList.remove(gatt)
                     }
-                    viewList.removeAt(deviceList.indexOf(gatt.device))
-                    deviceList.remove(gatt.device)
-                    gattList.remove(gatt)
+
 
                 }
             }
@@ -218,6 +229,7 @@ class MainActivity : AppCompatActivity() {
                         btyLevel = characteristic.getIntValue(FORMAT_UINT8, 0).toString()
                         runOnUiThread {
                             ll[gattList.indexOf(gatt)].tv_bty.text = "$btyLevel%"
+                            Log.d("show",gatt.device.name + ",bty")
                         }
                         Log.d("gatt", gatt.device.name + ",bty")
                     }
@@ -238,13 +250,18 @@ class MainActivity : AppCompatActivity() {
                             for (i in angleArray.indices){
                                 tvArray[i].text=xyz[i]+angleArray[i].toString()
                             }
+                            Log.d("show", gatt.device.name + ",xyz")
                         }
                         Log.d("gatt", gatt.device.name + ",xyz")
                     }
                 }
                 charMap[gatt]!!.remove(charMap[gatt]!!.last())
                 if (charMap[gatt]!!.size > 0) {
-                    requestCharacteristics(gatt)
+//                    Looper.loop()
+//                    Handler().postDelayed({
+                        requestCharacteristics(gatt)
+//                    },500)
+//                    Looper.prepare()
                 } else {
                     gatt.discoverServices()
                 }
