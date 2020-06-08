@@ -11,7 +11,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import android.view.View
 import android.widget.LinearLayout
@@ -23,18 +22,11 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.get
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.ble_item.view.*
-import kotlinx.android.synthetic.main.ble_item.view.tv1
-import kotlinx.android.synthetic.main.ble_item.view.tv2
-import kotlinx.android.synthetic.main.ble_item.view.tv3
-import kotlinx.android.synthetic.main.ble_item.view.tv_blename
-import kotlinx.android.synthetic.main.ble_item.view.tv_bty
-import kotlinx.android.synthetic.main.sample_devices_view.view.*
 import java.lang.Float.intBitsToFloat
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.*
 import kotlin.collections.ArrayList
-import kotlin.experimental.and
 
 
 class MainActivity : AppCompatActivity() {
@@ -42,11 +34,8 @@ class MainActivity : AppCompatActivity() {
     val scnList  = ArrayList<String>()
     val viewList = ArrayList<View>()
     var first=true
-//    val charList = ArrayList<BluetoothGattCharacteristic>()
     val charMap  = mutableMapOf<BluetoothGatt,ArrayList<BluetoothGattCharacteristic>>()
-
     val gattList = ArrayList<BluetoothGatt>()
-    val a=0
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -75,7 +64,6 @@ class MainActivity : AppCompatActivity() {
                     val addr = scnList[w].substring(scnList[w].lastIndexOf(',') + 1)
                     val device = mBtAdapter.getRemoteDevice(addr)
                     gattList.add(device.connectGatt(this, false, mGattCallback))
-//                    deviceList.add(device)
                     val view = devicesView(this)
                     viewList.add(view)
                     view.setOnLongClickListener {
@@ -104,8 +92,9 @@ class MainActivity : AppCompatActivity() {
 
 
     val mGattCallback: BluetoothGattCallback = object : mBluetoothGattCallback() {
-        override fun Discovered( p1: BluetoothGatt) {
-            super.Discovered( p1)
+        override fun Discovered(p1:BluetoothGatt) {
+            super.Discovered(p1)
+            Log.d("dis",p1.device.name)
             if (p1!=gattList.last()){
                 requestCharacteristics(gattList[gattList.indexOf(p1)+1])
             }
@@ -114,6 +103,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         fun requestCharacteristics(gatt: BluetoothGatt) {
+            Log.d("req",gatt.device.name)
             gatt.readCharacteristic(charMap[gatt]!!.last())
         }
         override fun onConnectionStateChange(gatt: BluetoothGatt,status: Int,newState: Int) {
@@ -130,7 +120,7 @@ class MainActivity : AppCompatActivity() {
 
                 }
                 BluetoothProfile.STATE_DISCONNECTED->{
-                    showMessage("連線失敗")
+                    showMessage("${gatt.device.name}連線失敗")
                     runOnUiThread {
                         ll.removeView(viewList[gattList.indexOf(gatt)])
                         viewList.removeAt(gattList.indexOf(gatt))
@@ -175,10 +165,10 @@ class MainActivity : AppCompatActivity() {
                     }
                     charMap[gatt]!!.add(BatteryLevel)
                     charMap[gatt]!!.add(GsensorXYZ)
-                    if (first){
-                        requestCharacteristics(gatt)
-                        first=false
-                    }
+//                    if (first){
+//                        requestCharacteristics(gatt)
+//                        first=false
+//                    }
 
 //                    for(i in charMap[gatt]!!){
 //                        gatt.setCharacteristicNotification(i,true)
@@ -223,12 +213,10 @@ class MainActivity : AppCompatActivity() {
                 when (characteristic.uuid) {
                     Battery_Level -> {//讀取電池電量
                         var btyLevel = "0"
-                        btyLevel = characteristic.getIntValue(FORMAT_UINT8, 0).toString()
+                        btyLevel = characteristic.getIntValue(FORMAT_UINT8, 0).toString()//電量為int
                         runOnUiThread {
                             ll[gattList.indexOf(gatt)].tv_bty.text = "$btyLevel%"
-                            Log.d("show",gatt.device.name + ",bty")
                         }
-                        Log.d("gatt", gatt.device.name + ",bty")
                     }
                     Gsensor_XYZ -> {//讀取角度
                         val angleArray= arrayOf(0f,0f,0f) //x,y,z
@@ -247,9 +235,7 @@ class MainActivity : AppCompatActivity() {
                             for (i in angleArray.indices){
                                 tvArray[i].text=xyz[i]+angleArray[i].toString()
                             }
-                            Log.d("show", gatt.device.name + ",xyz")
                         }
-                        Log.d("gatt", gatt.device.name + ",xyz")
                     }
                 }
                 charMap[gatt]!!.remove(charMap[gatt]!!.last())
