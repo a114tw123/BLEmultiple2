@@ -104,16 +104,13 @@ class MainActivity : AppCompatActivity() {
 
 
     val mGattCallback: BluetoothGattCallback = object : mBluetoothGattCallback() {
-        override fun Discovered(p0: Boolean, p1: BluetoothGatt) {
-            super.Discovered(p0, p1)
+        override fun Discovered( p1: BluetoothGatt) {
+            super.Discovered( p1)
             if (p1!=gattList.last()){
                 requestCharacteristics(gattList[gattList.indexOf(p1)+1])
             }
             else{
                 requestCharacteristics(gattList[0])
-            }
-            if (p0){
-
             }
         }
         fun requestCharacteristics(gatt: BluetoothGatt) {
@@ -194,7 +191,7 @@ class MainActivity : AppCompatActivity() {
 //                        }
 //                    }
 
-                    Discovered(true,gatt)
+                    Discovered(gatt)
                 }
                 else {
                     Log.w("GATT","onServicesDiscovered received: $status")
@@ -234,8 +231,8 @@ class MainActivity : AppCompatActivity() {
                         Log.d("gatt", gatt.device.name + ",bty")
                     }
                     Gsensor_XYZ -> {//讀取角度
-                        val angleArray= arrayOf(0f,0f,0f)
-                        val buffer=characteristic.value
+                        val angleArray= arrayOf(0f,0f,0f) //x,y,z
+                        val buffer=characteristic.value     //每個角度以float拆成4個byte 共12個byte
                         for (n in angleArray.indices){
                             val intBits: Int=(buffer[(n*4)+3].toUByte().toInt() shl 24) or
                                     (buffer[(n*4)+2].toUByte().toInt() shl 16) or
@@ -257,11 +254,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 charMap[gatt]!!.remove(charMap[gatt]!!.last())
                 if (charMap[gatt]!!.size > 0) {
-//                    Looper.loop()
-//                    Handler().postDelayed({
                         requestCharacteristics(gatt)
-//                    },500)
-//                    Looper.prepare()
                 } else {
                     gatt.discoverServices()
                 }
